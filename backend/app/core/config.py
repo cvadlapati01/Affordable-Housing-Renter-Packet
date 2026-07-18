@@ -12,6 +12,7 @@ DEFAULT_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
     "https://id-preview--d08fe862-27c6-4ca7-aa20-a6498a06229f.lovable.app",
+    "https://id-preview--11829488-e0b8-4432-a5c8-e123d8fd1e8d.lovable.app",
 ]
 
 
