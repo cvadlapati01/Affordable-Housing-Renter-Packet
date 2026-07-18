@@ -1,0 +1,15 @@
+# Organizer materials are draft and must not be distributed until approved.
+realdoor-hackathon-starter-pack/
+tmp/
+1784382653830-04-Databricks-Data-Legend.docx.pdf
+1784383492519-03-RealPage-RealDoor.docx.pdf
+
+# Local backend state, dependencies, secrets, and tunnel tooling.
+backend/.venv/
+backend/runtime/
+backend/tools/
+backend/data/
+backend/.env
+backend/.pytest_cache/
+backend/**/__pycache__/
+*.py[cod]
