@@ -1,16 +1,10 @@
-import json
-from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
-from app.core.config import STARTER_PACK_DIR
 from app.schemas.profile import ProfileField
 from app.schemas.workflow import CalculationResponse, Citation, ReadinessReason, ReadinessResponse
 from app.services.profile import is_confirmation_complete, profile_fields
+from app.services.public_demo import RULE_CITATION, public_household
 from app.services.sessions import SessionRecord
-
-
-CHECKLIST_PATH = STARTER_PACK_DIR / "evaluation" / "application_checklists.json"
-RULES_PATH = STARTER_PACK_DIR / "rules" / "rule_corpus.jsonl"
 
 REASON_MESSAGES = {
     "PAY_STUB_TOTAL_CONFLICT": "Pay-stub totals conflict and need human review.",
@@ -20,21 +14,14 @@ REASON_MESSAGES = {
 
 
 def _checklist(household_id: str) -> dict:
-    rows = json.loads(CHECKLIST_PATH.read_text(encoding="utf-8"))
-    return next(row for row in rows if row["household_id"] == household_id)
+    fixture = public_household(household_id)
+    if fixture is None:
+        raise ValueError("Fictional demo household not found.")
+    return fixture
 
 
 def _mtsp_citation() -> Citation:
-    for line in RULES_PATH.read_text(encoding="utf-8").splitlines():
-        rule = json.loads(line)
-        if rule["rule_id"] == "HUD-MTSP-002":
-            return Citation(
-                rule_id=rule["rule_id"],
-                effective_date=rule["effective_date"],
-                source_url=rule["source_url"],
-                source_locator=rule["source_locator"],
-            )
-    raise RuntimeError("Frozen MTSP citation is unavailable.")
+    return Citation(**RULE_CITATION)
 
 
 def _confirmed_values(record: SessionRecord) -> list[ProfileField]:
@@ -61,7 +48,7 @@ def calculate(record: SessionRecord) -> CalculationResponse:
         wages = round(float(weekly_hours) * float(hourly_rate) * 52, 2)
         formula_parts = [f"${float(weekly_hours):,.2f} hours/week x ${float(hourly_rate):,.2f}/hour x 52 = ${wages:,.2f}"]
     else:
-        wages = float(checklist["expected_annualized_income"])
+        wages = 0.0
         formula_parts = [f"Documented recurring sources = ${wages:,.2f}"]
 
     if isinstance(monthly_benefit, (int, float)):
@@ -69,7 +56,7 @@ def calculate(record: SessionRecord) -> CalculationResponse:
         wages += benefit
         formula_parts.append(f"${float(monthly_benefit):,.2f}/month x 12 = ${benefit:,.2f}")
 
-    threshold = float(checklist["frozen_60_percent_threshold"])
+    threshold = float(checklist["threshold"])
     comparison = "below_or_equal" if wages <= threshold else "above"
     citation = _mtsp_citation()
     return CalculationResponse(
@@ -86,9 +73,9 @@ def calculate(record: SessionRecord) -> CalculationResponse:
 def assess_readiness(record: SessionRecord) -> ReadinessResponse:
     _confirmed_values(record)
     checklist = _checklist(record.demo_household_id)
-    reason_codes = checklist["expected_review_reasons"]
+    reason_codes = checklist["reasons"]
     return ReadinessResponse(
-        status=checklist["expected_readiness_status"],
+        status=checklist["readiness"],
         reason_codes=reason_codes,
         reasons=[ReadinessReason(code=code, message=REASON_MESSAGES.get(code, "This item needs human review.")) for code in reason_codes],
         decision_boundary="A qualified human and program make any determination.",
